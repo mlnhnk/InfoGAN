@@ -51,11 +51,10 @@ from models import Generator, Discriminator, Recognition, SharedPartDQ
 class log_gaussian:
 
   def __call__(self, x, mu, var):
-
-    logli = -0.5*(var.mul(2*np.pi)+1e-6).log() - \
-            (x-mu).pow(2).div(var.mul(2.0)+1e-6)
-    
-    return logli.sum(1).mean().mul(-1)
+      logli = -0.5*(var.mul(2*np.pi)+1e-6).log() - \
+      (x-mu).pow(2).div(var.mul(2.0)+1e-6)
+                
+      return logli.sum(1).mean().mul(-1)
 
 def print_models(DQ, D, Q, G):
     """Prints model information for the generators and discriminators.
@@ -86,7 +85,7 @@ def create_model(opts):
     """
     G = Generator(noise_size=opts.noise_size, conv_dim=opts.conv_dim)
     D = Discriminator()
-    Q = Recognition(categorical_dims=10, continuous_dims=2)
+    Q = Recognition(categorical_dims=opts.cat_dim_size, continuous_dims=opts.cont_dim_size)
     DQ = SharedPartDQ()
     
     if opts.display_debug:
@@ -176,7 +175,7 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
     grid = create_image_grid(generated_images, ncols=opts.interp_size)
 
     # merged = merge_images(X, fake_Y, opts)
-    path = os.path.join(opts.sample_dir, 'sample-{:06d}_{}.png'.format(iteration, extra_name))
+    path = os.path.join(opts.sample_dir, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
     scipy.misc.imsave(path, grid)
     print('Saved {}'.format(path))
 
@@ -194,9 +193,6 @@ def sample_noise(opts):
       random noise in the range (-1, 1).
     """
     batch_noise = utils.to_var(torch.rand(batch_size, opts.noise_size) * 2 - 1)
-    
-    # cont_dim_size
-    # cat_dim_size
     
     random_categories = np.random.randint(low=0, high=opts.cat_dim_size, size=batch_size)
     onehot_categories = np.eye(opts.cat_dim_size)[random_categories]
@@ -254,8 +250,10 @@ def training_loop(train_dataloader, opts):
 
     # Generate fixed noise for sampling from the generator
 #    fixed_noise, random_categories, cont_latent_variables = sample_noise(opts)
-    fixed_noise_c1 = get_fixed_noise(opts, var=0)
-    fixed_noise_c2 = get_fixed_noise(opts, var=1)
+    
+    fixed_noise = []
+    for i in range(opts.cont_dim_size):
+        fixed_noise.append(get_fixed_noise(opts, var=i))
         
     iteration = 1
 
@@ -293,13 +291,13 @@ def training_loop(train_dataloader, opts):
                         
             D_real_loss = loss_criterion(D_real_images, ones_label[:real_images.size()[0]])
 
-            batch_noise, random_categories, cont_latent_variables = sample_noise(opts)
+            batch_noise, _, _= sample_noise(opts)
             fake_images = G(batch_noise)
             
             D_fake_images = D(DQ(fake_images))
             D_fake_loss = loss_criterion(D_fake_images, zeros_label[:fake_images.size()[0]])
             
-            D_total_loss = (D_real_loss + D_fake_loss) / 2
+            D_total_loss = (D_real_loss + D_fake_loss)
             
             D_total_loss.backward()
             d_optimizer.step()
@@ -338,8 +336,8 @@ def training_loop(train_dataloader, opts):
 
             # Save the generated samples
             if iteration % opts.sample_every == 0:
-                save_samples(G, fixed_noise_c1, iteration, opts, "c1")
-                save_samples(G, fixed_noise_c2, iteration, opts, "c2")
+                for i in range(opts.cont_dim_size):
+                    save_samples(G, fixed_noise[i], iteration, opts, i)
 
             # Save the model parameters
             if iteration % opts.checkpoint_every == 0:
@@ -372,11 +370,11 @@ def create_parser():
     parser.add_argument('--image_size', type=int, default=28, help='The side length N to convert images to NxN.')
     parser.add_argument('--conv_dim', type=int, default=128)
     parser.add_argument('--noise_size', type=int, default=74)
-    parser.add_argument('--cont_dim_size', type=int, default=2)
+    parser.add_argument('--cont_dim_size', type=int, default=4)
     parser.add_argument('--cat_dim_size', type=int, default=10)
 
     # Training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=9000)
+    parser.add_argument('--num_epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=64, help='The number of images in a batch.')
     parser.add_argument('--interp_size', type=int, default=10, help='The number of interpolation for continuous variables images displayed.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
@@ -384,17 +382,14 @@ def create_parser():
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.99)
 
-    # Data sources
-    parser.add_argument('--emoji', type=str, default='Apple', choices=['Apple', 'Facebook', 'Windows'], help='Choose the type of emojis to generate.')
-
     # Directories and checkpoint/sample iterations
-    parser.add_argument('--display_debugs', type=str, default=True)
-    parser.add_argument('--checkpoint_dir', type=str, default='./test')
-    parser.add_argument('--sample_dir', type=str, default='./test_samples')
-    parser.add_argument('--log_step', type=int , default=100)
+    parser.add_argument('--display_debug', type=str, default=False)
+    parser.add_argument('--checkpoint_dir', type=str, default='./five_latent_variables')
+    parser.add_argument('--sample_dir', type=str, default='./five_latent_variables_sample')
+    parser.add_argument('--log_step', type=int , default=10)
     parser.add_argument('--load', type=str, default=None)
-    parser.add_argument('--sample_every', type=int , default=1000)
-    parser.add_argument('--checkpoint_every', type=int , default=100)
+    parser.add_argument('--sample_every', type=int , default=200)
+    parser.add_argument('--checkpoint_every', type=int , default=500)
 
     return parser
 

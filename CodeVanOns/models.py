@@ -29,9 +29,6 @@ def fullycon(in_channels, out_channels, batch_norm=True, init_zero_weights=False
     if batch_norm:
         layers.append(nn.BatchNorm1d(out_channels))
     return nn.Sequential(*layers)
-    # Fully connected = convolution with kernel size 1
-#    return conv(in_channels, out_channels, 1, batch_norm=batch_norm, stride=1, padding=0)
-    
 
 class Flatten(nn.Module):
     def forward(self, input):
@@ -143,7 +140,10 @@ class Recognition(nn.Module):
         
     def forward(self, x):
         out = F.leaky_relu(self.recog_fc2(x), negative_slope=0.1)
+        
+        #TODO MISSCHEIN SOFTMAX TEOVOEGEN?
         cat_out = self.cat_fc(out)
+        
         cont_mu_out = self.cont_mu_fc(out)
         cont_sigma_out = self.cont_sigma_fc(out)
         
