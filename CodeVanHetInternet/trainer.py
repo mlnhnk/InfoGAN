@@ -9,6 +9,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
+from data_loader import get_mnist_data
+
 import numpy as np
 
 class log_gaussian:
@@ -44,7 +46,7 @@ class Trainer:
 
     return z, idx
 
-  def train(self):
+  def train(self, opts):
 
     real_x = torch.FloatTensor(self.batch_size, 1, 28, 28).cuda()
     label = torch.FloatTensor(self.batch_size, 1).cuda()
@@ -65,8 +67,9 @@ class Trainer:
     optimD = optim.Adam([{'params':self.FE.parameters()}, {'params':self.D.parameters()}], lr=0.0002, betas=(0.5, 0.99))
     optimG = optim.Adam([{'params':self.G.parameters()}, {'params':self.Q.parameters()}], lr=0.001, betas=(0.5, 0.99))
 
-    dataset = dset.MNIST('./dataset', transform=transforms.ToTensor(), download=True)
-    dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+#    dataset = dset.MNIST('./dataset', transform=transforms.ToTensor(), download=True)
+#    dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+    dataloader, _ = get_mnist_data(opts)
 
     # fixed random variables
     c = np.linspace(-1, 1, 10).reshape(1, -1)
@@ -80,14 +83,16 @@ class Trainer:
     one_hot[range(100), idx] = 1
     fix_noise = torch.Tensor(100, 62).uniform_(-1, 1)
 
-
+    print("start epochs")
     for epoch in range(100):
-      for num_iters, batch_data in enumerate(dataloader, 0):
-
+      print("Running epoch {}".format(epoch))
+      num_iters = 0
+      for real_images, real_labels in dataloader:
+        num_iters+=1
         # real part
         optimD.zero_grad()
         
-        x, _ = batch_data
+        x = real_images
 
         bs = x.size(0)
         real_x.data.resize_(x.size())
@@ -141,16 +146,17 @@ class Trainer:
             epoch, num_iters, D_loss.data.cpu().numpy(),
             G_loss.data.cpu().numpy())
           )
-
+    
           noise.data.copy_(fix_noise)
           dis_c.data.copy_(torch.Tensor(one_hot))
 
           con_c.data.copy_(torch.from_numpy(c1))
           z = torch.cat([noise, dis_c, con_c], 1).view(-1, 74, 1, 1)
           x_save = self.G(z)
-          save_image(x_save.data, './tmp/c1.png', nrow=10)
+          save_image(x_save.data, './tmp/ep{}_it{}_c1.png'.format(epoch, num_iters), nrow=10)
 
           con_c.data.copy_(torch.from_numpy(c2))
           z = torch.cat([noise, dis_c, con_c], 1).view(-1, 74, 1, 1)
           x_save = self.G(z)
-          save_image(x_save.data, './tmp/c2.png', nrow=10)
+          save_image(x_save.data, './tmp/ep{}_it{}_c2.png'.format(epoch, num_iters), nrow=10)
+    print("done running")

@@ -23,7 +23,7 @@ def fullycon(in_channels, out_channels, batch_norm=True, init_zero_weights=False
     layers = []
     fc_layer = nn.Linear(in_channels, out_channels)
     if init_zero_weights:
-        fc_layer.weight.data = torch.randn(out_channels, in_channels, kernel_size, kernel_size) * 0.001
+        fc_layer.weight.data = torch.randn(out_channels, in_channels) * 0.001
     layers.append(fc_layer)
 
     if batch_norm:
@@ -104,8 +104,6 @@ class SharedPartDQ(nn.Module):
 #        4 × 4 conv. 128 lRELU. stride 2. batchnorm 
         self.conv2 = conv(64, 128, 4, stride=2, padding=1, batch_norm=True)
 #        FC. 1024 lRELU. batchnorm         
-#        self.fc1 = fullycon(128, 1024, batch_norm=True)
-#        self.fc1 = nn.Linear(128*7*7, 1024)
         self.fc1 = fullycon(128 * 7 * 7, 1024, batch_norm=True)
 
     def forward(self, x):
@@ -122,7 +120,7 @@ class Discriminator(nn.Module):
         
         # FC. output layer for D,
         self.discr_fc2 = fullycon(1024, 1, batch_norm=False)
-#        self.discr_fc2 = nn.Linear(1024, 1)
+
         
     def forward(self, x):
         out = self.discr_fc2(x)

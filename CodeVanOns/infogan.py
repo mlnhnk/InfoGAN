@@ -57,19 +57,29 @@ class log_gaussian:
     
     return logli.sum(1).mean().mul(-1)
 
-def print_models(G, D):
+def print_models(DQ, D, Q, G):
     """Prints model information for the generators and discriminators.
     """
-    print("                    G                  ")
+    print("                    DQ                  ")
     print("---------------------------------------")
-    print(G)
+    print(DQ)
     print("---------------------------------------")
 
     print("                    D                  ")
     print("---------------------------------------")
     print(D)
     print("---------------------------------------")
+    
+    print("                    Q                  ")
+    print("---------------------------------------")
+    print(Q)
+    print("---------------------------------------")
 
+    print("                    G                  ")
+    print("---------------------------------------")
+    print(G)
+    print("---------------------------------------")
+    
 
 def create_model(opts):
     """Builds the generators and discriminators.
@@ -78,27 +88,67 @@ def create_model(opts):
     D = Discriminator()
     Q = Recognition(categorical_dims=10, continuous_dims=2)
     DQ = SharedPartDQ()
-
-    print_models(G, DQ)
-    print_models(D, Q)
+    
+    if opts.display_debug:
+        print_models(DQ, D, Q, G)
 
     if torch.cuda.is_available():
         G.cuda()
         D.cuda()
         Q.cuda()
         DQ.cuda()
-        print('Models moved to GPU.')
+        if opts.display_debug:
+            print('Models moved to GPU.')
 
     return G, D, Q, DQ
 
 
-def checkpoint(iteration, G, D, opts):
+def checkpoint(iteration, G, D, Q, DQ, opts):
     """Saves the parameters of the generator G and discriminator D.
     """
     G_path = os.path.join(opts.checkpoint_dir, 'G.pkl')
     D_path = os.path.join(opts.checkpoint_dir, 'D.pkl')
+    Q_path = os.path.join(opts.checkpoint_dir, 'Q.pkl')
+    DQ_path = os.path.join(opts.checkpoint_dir, 'DQ.pkl')
+    Opts_path = os.path.join(opts.checkpoint_dir, 'opts.pkl')
+    
     torch.save(G.state_dict(), G_path)
     torch.save(D.state_dict(), D_path)
+    torch.save(Q.state_dict(), Q_path)
+    torch.save(DQ.state_dict(), DQ_path)
+    pickle.dump( opts, open( Opts_path, "wb" ) )
+    
+def load_checkpoint(opts):
+    """Loads the generator and discriminator models from checkpoints.
+    """
+    if opts.load == None:
+        print("None selected, thus we assume we load from checkpoint_dir.")
+        load_path = opts.checkpoint_dir
+    else:
+        print("Use opts.load")
+        load_path = opts.load
+    
+    G_path = os.path.join(load_path, 'G.pkl')
+    D_path = os.path.join(load_path, 'D.pkl')
+    Q_path = os.path.join(load_path, 'Q.pkl')
+    DQ_path = os.path.join(load_path, 'DQ.pkl')
+
+    G, D, Q, DQ = create_model(opts)
+
+    G.load_state_dict(torch.load(G_path, map_location=lambda storage, loc: storage))
+    D.load_state_dict(torch.load(D_path, map_location=lambda storage, loc: storage))
+    Q.load_state_dict(torch.load(Q_path, map_location=lambda storage, loc: storage))
+    DQ.load_state_dict(torch.load(DQ_path, map_location=lambda storage, loc: storage))
+
+    if torch.cuda.is_available():
+        G.cuda()
+        D.cuda()
+        Q.cuda()
+        DQ.cuda()
+        if opts.display_debug:
+            print('Models moved to GPU.')
+
+    return G, D, Q, DQ
 
 
 def create_image_grid(array, ncols=None):
@@ -217,7 +267,8 @@ def training_loop(train_dataloader, opts):
         loss_criterion.cuda()
         zeros_label = torch.autograd.Variable(torch.zeros(batch_size).float().cuda())
         ones_label = torch.autograd.Variable(torch.ones(batch_size).float().cuda())
-        print('MSE loss moved to GPU.')
+        if opts.display_debug:
+            print('MSE loss moved to GPU.')
     else:
         zeros_label = torch.autograd.Variable(torch.zeros(batch_size).float())
         ones_label = torch.autograd.Variable(torch.ones(batch_size).float())
@@ -292,7 +343,7 @@ def training_loop(train_dataloader, opts):
 
             # Save the model parameters
             if iteration % opts.checkpoint_every == 0:
-                checkpoint(iteration, G, D, opts)
+                checkpoint(iteration, G, D, Q, DQ, opts)
 
             iteration += 1
 
@@ -325,7 +376,7 @@ def create_parser():
     parser.add_argument('--cat_dim_size', type=int, default=10)
 
     # Training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--num_epochs', type=int, default=9000)
     parser.add_argument('--batch_size', type=int, default=64, help='The number of images in a batch.')
     parser.add_argument('--interp_size', type=int, default=10, help='The number of interpolation for continuous variables images displayed.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
@@ -337,11 +388,13 @@ def create_parser():
     parser.add_argument('--emoji', type=str, default='Apple', choices=['Apple', 'Facebook', 'Windows'], help='Choose the type of emojis to generate.')
 
     # Directories and checkpoint/sample iterations
-    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints_vanilla')
-    parser.add_argument('--sample_dir', type=str, default='./samples_vanilla')
-    parser.add_argument('--log_step', type=int , default=10)
-    parser.add_argument('--sample_every', type=int , default=200)
-    parser.add_argument('--checkpoint_every', type=int , default=400)
+    parser.add_argument('--display_debugs', type=str, default=True)
+    parser.add_argument('--checkpoint_dir', type=str, default='./test')
+    parser.add_argument('--sample_dir', type=str, default='./test_samples')
+    parser.add_argument('--log_step', type=int , default=100)
+    parser.add_argument('--load', type=str, default=None)
+    parser.add_argument('--sample_every', type=int , default=1000)
+    parser.add_argument('--checkpoint_every', type=int , default=100)
 
     return parser
 
