@@ -85,6 +85,7 @@ class Generator(nn.Module):
         out = F.relu(self.deconv1(out))
         out = F.relu(self.deconv2(out))
         out = F.relu(self.deconv3(out))
+        out = F.relu(self.deconv4(out))
         return F.tanh(out)
 
 
