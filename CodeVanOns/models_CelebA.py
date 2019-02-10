@@ -105,7 +105,7 @@ class SharedPartDQ(nn.Module):
         out = F.leaky_relu(self.conv1(x), negative_slope=0.1)
         out = F.leaky_relu(self.conv2(out), negative_slope=0.1)
         out = F.leaky_relu(self.conv3(out), negative_slope=0.1)
-        out = out.view(-1, 256 * 32 * 32)
+        out = out.view(-1, 256 * 4 * 4)
         return out
     
     
@@ -114,7 +114,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         
         # FC. output layer for D,
-        self.discr_fc2 = fullycon(256 * 32 * 32, 1, batch_norm=False)
+        self.discr_fc2 = fullycon(256 * 4 * 4, 1, batch_norm=False)
         
     def forward(self, x):
         out = self.discr_fc2(x)
@@ -128,7 +128,7 @@ class Recognition(nn.Module):
         self.cat_dims = categorical_dims
         self.cont_dims = continuous_dims
         
-        self.recog_fc2 = fullycon(256 * 32 * 32, 128, batch_norm=True)
+        self.recog_fc2 = fullycon(256 * 4 * 4, 128, batch_norm=True)
         
         # Layers to get categorical and continous values
         self.cat_fc = fullycon(128, self.cat_dims, batch_norm=False)

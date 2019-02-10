@@ -278,8 +278,8 @@ def training_loop(train_dataloader, opts):
 
         for real_images, real_labels in train_dataloader:
 
-            real_images, labels = utils.to_var(real_images), utils.to_var(real_labels).long().squeeze()
-            
+            #real_images, labels = utils.to_var(real_images), utils.to_var(real_labels).long().squeeze()
+            real_images = utils.to_var(real_images)
 
             ################################################
             ###         TRAIN THE DISCRIMINATOR         ####
