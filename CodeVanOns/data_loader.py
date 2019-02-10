@@ -28,6 +28,19 @@ def get_emoji_loader(data, opts):
 
     return train_dloader, test_dloader
 
+def get_celeba_loader(opts):
+    transform = transforms.Compose([
+                    transforms.Scale(opts.image_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                ])
+
+#    train_path = os.path.join('./data/', emoji_type)
+    train_dataset = datasets.ImageFolder('celeba/img_align_celeba/', transform)
+    train_dloader = DataLoader(dataset=train_dataset, batch_size=opts.batch_size, shuffle=True, num_workers=opts.num_workers)
+
+    return train_dloader
+
 def get_mnist_data(opts):
     # Check if data exists and load it:
     data_path = utils.check_mnist_dataset_exists()
