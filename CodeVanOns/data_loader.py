@@ -36,7 +36,7 @@ def get_celeba_loader(opts):
                 ])
 
 #    train_path = os.path.join('./data/', emoji_type)
-    train_dataset = datasets.ImageFolder('celeba/img_align_celeba/', transform)
+    train_dataset = datasets.ImageFolder('celeba/', transform)
     train_dloader = DataLoader(dataset=train_dataset, batch_size=opts.batch_size, shuffle=True, num_workers=opts.num_workers)
 
     return train_dloader
