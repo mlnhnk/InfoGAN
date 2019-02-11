@@ -391,7 +391,7 @@ def training_loop(train_dataloader, opts):
             # Print the log info
             if iteration % opts.log_step == 0:
                 print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss_fake: {:6.4f} | G_dis_loss: {:6.4f} | G_con_loss: {:6.4f}'.format(
-                       iteration, total_train_iters, D_real_loss.data[0], D_fake_loss.data[0], G_loss_fake.data[0], dis_loss, con_loss))
+                       iteration, total_train_iters, D_real_loss.item(), D_fake_loss.item(), G_loss_fake.item(), dis_loss.item(), con_loss.item()))
 
             # Save the generated samples
             if iteration % opts.sample_every == 0:
