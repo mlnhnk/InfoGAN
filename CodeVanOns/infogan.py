@@ -115,18 +115,24 @@ def create_model(opts):
 def checkpoint(iteration, G, D, Q, DQ, opts):
     """Saves the parameters of the generator G and discriminator D.
     """
-    dir_path = os.path.join(opts.directory, 'model')
+    if opts.colab:
+        dir_path =F"/content/gdrive/My Drive/{opts.directory}/model/"
+    else:
+        dir_path = os.path.join(opts.directory, 'model')
+    
     G_path = os.path.join(dir_path, 'G.pkl')
     D_path = os.path.join(dir_path, 'D.pkl')
     Q_path = os.path.join(dir_path, 'Q.pkl')
     DQ_path = os.path.join(dir_path, 'DQ.pkl')
     Opts_path = os.path.join(dir_path, 'opts.pkl')
-    
+        
     torch.save(G.state_dict(), G_path)
     torch.save(D.state_dict(), D_path)
     torch.save(Q.state_dict(), Q_path)
     torch.save(DQ.state_dict(), DQ_path)
     pickle.dump( opts, open( Opts_path, "wb" ) )
+    
+    return
     
 def load_checkpoint(opts):
     """Loads the generator and discriminator models from checkpoints.
@@ -185,8 +191,11 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
     
     grid = create_image_grid(generated_images, ncols=10)
 
-    # merged = merge_images(X, fake_Y, opts)
-    dir_path = os.path.join(opts.directory, 'samples')
+    if opts.colab:
+        dir_path = F"/content/gdrive/My Drive/{opts.directory}/samples/"
+    else:
+        dir_path = os.path.join(opts.directory, 'samples')
+        
     path = os.path.join(dir_path, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
     scipy.misc.imsave(path, grid)
     print('Saved {}'.format(path))
@@ -436,7 +445,7 @@ def create_parser():
 
     # Model hyper-parameters
     parser.add_argument('--dataset', type=str, default = 'CelebA', help='Select dataset, choose between MNIST or CelebA')
-    parser.add_argument('--directory', type=str, default='test')
+    parser.add_argument('--directory', type=str, default='test4')
     
     # Training hyper-parameters
     parser.add_argument('--num_epochs', type=int, default=20)
@@ -446,12 +455,15 @@ def create_parser():
     # Directories and checkpoint/sample iterations
     parser.add_argument('--display_debug', type=str, default=False)
     parser.add_argument('--log_step', type=int , default=10)
-    parser.add_argument('--sample_every', type=int , default=500)
-    parser.add_argument('--checkpoint_every', type=int , default=500)
+    parser.add_argument('--sample_every', type=int , default=100)
+    parser.add_argument('--checkpoint_every', type=int , default=100)
     
     # Want to load a previously run model? Give the parent directory
     # Want to start over? Just set it as None
     parser.add_argument('--load', type=str, default=None)
+    
+    # Save files to google drive?
+    parser.add_argument('--colab', type=str, default=False)
     
     return parser
 
@@ -487,6 +499,11 @@ if __name__ == '__main__':
         opts.lrG = 1e-3
         opts.beta1 = 0.5
         opts.beta2 = 0.99
+        
+    # Setup connection to google drive to save data
+    if opts.colab:
+        from google.colab import drive
+        drive.mount('/content/gdrive')
     
     print(opts)
     main(opts)
