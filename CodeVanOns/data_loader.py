@@ -31,8 +31,7 @@ def get_emoji_loader(data, opts):
 def get_celeba_loader(opts):
     transform = transforms.Compose([
                     transforms.Scale(32),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                    transforms.ToTensor()
                 ])
 
 #    train_path = os.path.join('./data/', emoji_type)

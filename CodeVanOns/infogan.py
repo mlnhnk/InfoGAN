@@ -390,8 +390,12 @@ def training_loop(train_dataloader, opts):
 
             # Print the log info
             if iteration % opts.log_step == 0:
-                print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss_fake: {:6.4f} | G_dis_loss: {:6.4f} | G_con_loss: {:6.4f}'.format(
-                       iteration, total_train_iters, D_real_loss.item(), D_fake_loss.item(), G_loss_fake.item(), dis_loss.item(), con_loss.item()))
+                if opts.cont_dims_count > 0:
+                    print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss_fake: {:6.4f} | G_dis_loss: {:6.4f} | G_con_loss: {:6.4f}'.format(
+                            iteration, total_train_iters, D_real_loss.item(), D_fake_loss.item(), G_loss_fake.item(), dis_loss.item(), con_loss.item()))
+                else:
+                    print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss_fake: {:6.4f} | G_dis_loss: {:6.4f}'.format(
+                            iteration, total_train_iters, D_real_loss.item(), D_fake_loss.item(), G_loss_fake.item(), dis_loss.item()))
 
             # Save the generated samples
             if iteration % opts.sample_every == 0:
@@ -431,11 +435,11 @@ def create_parser():
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--dataset', type=str, default = 'MNIST', help='Select dataset, choose between MNIST or CelebA')
+    parser.add_argument('--dataset', type=str, default = 'CelebA', help='Select dataset, choose between MNIST or CelebA')
     parser.add_argument('--directory', type=str, default='test')
     
     # Training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=900)
+    parser.add_argument('--num_epochs', type=int, default=20)
     parser.add_argument('--batch_size', type=int, default=16, help='The number of images in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
     
@@ -466,8 +470,8 @@ if __name__ == '__main__':
         opts.cont_dims_count = 0
         opts.cat_dim_size = 10
         opts.cat_dims_count = 10        
-        opts.lrD = 5e-5
-        opts.lrG = 3e-3
+        opts.lrD = 2e-4
+        opts.lrG = 1e-3
         opts.beta1 = 0.5
         opts.beta2 = 0.99
     else: # This is the MNIST dataset (default)
