@@ -428,9 +428,15 @@ def main(opts):
         train_dataloader, test_dataloader = get_mnist_data(opts)
     
     # Create checkpoint and sample directories
-    utils.create_dir(opts.directory)
-    utils.create_dir(os.path.join(opts.directory, 'samples'))
-    utils.create_dir(os.path.join(opts.directory, 'model'))
+    if opts.colab:
+        dir_path =F"/content/gdrive/My Drive/{opts.directory}/model/"
+        utils.create_dir(dir_path)
+        dir_path =F"/content/gdrive/My Drive/{opts.directory}/samples/"
+        utils.create_dir(dir_path)
+    else:
+        utils.create_dir(opts.directory)
+        utils.create_dir(os.path.join(opts.directory, 'samples'))
+        utils.create_dir(os.path.join(opts.directory, 'model'))
 #
     startTime = time.time()
     training_loop(train_dataloader, opts)
