@@ -59,7 +59,7 @@ def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_norm
 
 
 class Generator(nn.Module):
-    def __init__(self, noise_size, conv_dim):
+    def __init__(self, noise_size):
         super(Generator, self).__init__()
         
         self.fc1 = fullycon(noise_size, 2 * 2 * 448, batch_norm=True)
@@ -133,8 +133,10 @@ class Recognition(nn.Module):
         
         # Layers to get categorical and continous values
         self.cat_fc = fullycon(128, self.cat_dims, batch_norm=False)
-        self.cont_mu_fc = fullycon(128, self.cont_dims, batch_norm=False)
-        self.cont_sigma_fc = fullycon(128, self.cont_dims, batch_norm=False)
+        
+        if self.cont_dims > 0:
+            self.cont_mu_fc = fullycon(128, self.cont_dims, batch_norm=False)
+            self.cont_sigma_fc = fullycon(128, self.cont_dims, batch_norm=False)
         
     def forward(self, x):
         out = F.leaky_relu(self.recog_fc2(x), negative_slope=0.1)
@@ -142,7 +144,10 @@ class Recognition(nn.Module):
         #TODO MISSCHEIN SOFTMAX TEOVOEGEN?
         cat_out = self.cat_fc(out)
         
-        cont_mu_out = self.cont_mu_fc(out)
-        cont_sigma_out = self.cont_sigma_fc(out)
+        if self.cont_dims > 0:
+            cont_mu_out = self.cont_mu_fc(out)
+            cont_sigma_out = self.cont_sigma_fc(out)
         
-        return cat_out.squeeze(), cont_mu_out.squeeze(), cont_sigma_out.squeeze().exp()
+            return cat_out.squeeze(), cont_mu_out.squeeze(), cont_sigma_out.squeeze().exp()
+        else:
+            return cat_out.squeeze(), None, None

@@ -39,6 +39,6 @@ Thumbs.db
 # LOCAL FOLDERS #
 #################
 */__pycache__/
-*/data/
+*/data/mnist/
 /CodeVanHetInternet/dataset/
 */.ipynb_checkpoints/

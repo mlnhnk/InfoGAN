@@ -35,8 +35,7 @@ import torch.optim as optim
 
 # Local imports
 import utils
-from data_loader import get_mnist_data
-from models import Generator, Discriminator, Recognition, SharedPartDQ
+from data_loader import get_mnist_data, get_celeba_loader
 
 
 #SEED = 11
@@ -83,9 +82,13 @@ def print_models(DQ, D, Q, G):
 def create_model(opts):
     """Builds the generators and discriminators.
     """
-    G = Generator(noise_size=opts.noise_size, conv_dim=opts.conv_dim)
+    G = Generator(noise_size=opts.noise_size)
     D = Discriminator()
-    Q = Recognition(categorical_dims=opts.cat_dim_size, continuous_dims=opts.cont_dim_size)
+    
+    # Amount of variables is amount of categoricals times their sizes
+    nr_latent_cat_values = opts.cat_dims_count * opts.cat_dim_size
+    
+    Q = Recognition(categorical_dims=nr_latent_cat_values, continuous_dims=opts.cont_dims_count)
     DQ = SharedPartDQ()
     
     if opts.display_debug:
@@ -105,11 +108,12 @@ def create_model(opts):
 def checkpoint(iteration, G, D, Q, DQ, opts):
     """Saves the parameters of the generator G and discriminator D.
     """
-    G_path = os.path.join(opts.checkpoint_dir, 'G.pkl')
-    D_path = os.path.join(opts.checkpoint_dir, 'D.pkl')
-    Q_path = os.path.join(opts.checkpoint_dir, 'Q.pkl')
-    DQ_path = os.path.join(opts.checkpoint_dir, 'DQ.pkl')
-    Opts_path = os.path.join(opts.checkpoint_dir, 'opts.pkl')
+    dir_path = os.path.join(opts.directory, 'model')
+    G_path = os.path.join(dir_path, 'G.pkl')
+    D_path = os.path.join(dir_path, 'D.pkl')
+    Q_path = os.path.join(dir_path, 'Q.pkl')
+    DQ_path = os.path.join(dir_path, 'DQ.pkl')
+    Opts_path = os.path.join(dir_path, 'opts.pkl')
     
     torch.save(G.state_dict(), G_path)
     torch.save(D.state_dict(), D_path)
@@ -175,7 +179,8 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
     grid = create_image_grid(generated_images, ncols=opts.interp_size)
 
     # merged = merge_images(X, fake_Y, opts)
-    path = os.path.join(opts.sample_dir, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
+    dir_path = os.path.join(opts.directory, 'samples')
+    path = os.path.join(dir_path, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
     scipy.misc.imsave(path, grid)
     print('Saved {}'.format(path))
 
@@ -194,14 +199,29 @@ def sample_noise(opts):
     """
     batch_noise = utils.to_var(torch.rand(batch_size, opts.noise_size) * 2 - 1)
     
-    random_categories = np.random.randint(low=0, high=opts.cat_dim_size, size=batch_size)
-    onehot_categories = np.eye(opts.cat_dim_size)[random_categories]
+    target_categories = -1*np.ones(shape=(batch_size, opts.cat_dims_count))
     
-    batch_noise[:, :opts.cat_dim_size] = torch.tensor(onehot_categories)
-    
-    cont_latent_variables = torch.zeros([batch_size, opts.cont_dim_size]).uniform_() * 2 - 1
-    batch_noise[:, opts.cat_dim_size:opts.cat_dim_size + opts.cont_dim_size] = cont_latent_variables
-    return batch_noise, torch.LongTensor(random_categories).cuda(), cont_latent_variables.cuda()
+    # For each categorical value
+    for cat_ind in range(opts.cat_dims_count):
+        random_categories = np.random.randint(low=0, high=opts.cat_dim_size, size=batch_size)
+        
+        # Append random_categories to target variable
+        target_categories[:, cat_ind] = random_categories
+                
+        onehot_categories = np.eye(opts.cat_dim_size)[random_categories]
+        
+        ind_from = cat_ind * opts.cat_dim_size
+        ind_to = ind_from + opts.cat_dim_size
+        
+        batch_noise[:, ind_from:ind_to] = torch.tensor(onehot_categories)
+        
+        
+    if opts.cont_dims_count > 0:
+        cont_latent_variables = torch.zeros([batch_size, opts.cont_dims_count]).uniform_() * 2 - 1
+        batch_noise[:, ind_to:ind_to + opts.cont_dims_count] = cont_latent_variables
+        return batch_noise, torch.LongTensor(target_categories).cuda(), cont_latent_variables.cuda()
+    else:
+        return batch_noise, torch.LongTensor(target_categories).cuda(), None
 
 def get_fixed_noise(opts, var=0):
     """
@@ -231,8 +251,6 @@ def get_fixed_noise(opts, var=0):
         batch_noise[:,10] = 0
         batch_noise[:,11] = continous_spectrum
     
-#    cont_latent_variables = torch.zeros([batch_size, opts.cont_dim_size]).uniform_() * 2 - 1
-#    batch_noise[:, opts.cat_dim_size:opts.cat_dim_size + opts.cont_dim_size] = cont_latent_variables
     return batch_noise.cuda()
 
 def training_loop(train_dataloader, opts):
@@ -252,7 +270,7 @@ def training_loop(train_dataloader, opts):
 #    fixed_noise, random_categories, cont_latent_variables = sample_noise(opts)
     
     fixed_noise = []
-    for i in range(opts.cont_dim_size):
+    for i in range(opts.cont_dims_count):
         fixed_noise.append(get_fixed_noise(opts, var=i))
         
     iteration = 1
@@ -318,12 +336,18 @@ def training_loop(train_dataloader, opts):
             
             cat, cont_mu, cont_sigma = Q(DQ_fake_images)
             
+            # Reshape cat to properly reflext each categorical 
+            cat = cat.view(-1, opts.cat_dim_size, opts.cat_dims_count)
+            
+            # Calculate loss for each categorical dimension            
             dis_loss = criterion_Q_dis(cat, category_target)
             
-            con_loss = criterion_Q_con(continous_target, cont_mu, cont_sigma)*0.1
+            if opts.cont_dims_count > 0:
+                con_loss = criterion_Q_con(continous_target, cont_mu, cont_sigma)*0.1
+            else:
+                con_loss = 0
  
             G_loss_total = G_loss_fake + dis_loss + con_loss
-#            print([G_loss_fake.data[0], dis_loss.data[0], con_loss.data[0]])
 
             G_loss_total.backward()
             g_optimizer.step()
@@ -336,8 +360,11 @@ def training_loop(train_dataloader, opts):
 
             # Save the generated samples
             if iteration % opts.sample_every == 0:
-                for i in range(opts.cont_dim_size):
-                    save_samples(G, fixed_noise[i], iteration, opts, i)
+                if opts.dataset == 'CelebA':
+                    print("Print celeba")
+                else: # Show MNIST (defailt)
+                    for i in range(opts.cont_dims_count):
+                        save_samples(G, fixed_noise[i], iteration, opts, i)
 
             # Save the model parameters
             if iteration % opts.checkpoint_every == 0:
@@ -349,11 +376,16 @@ def training_loop(train_dataloader, opts):
 def main(opts):
     """Loads the data, creates checkpoint and sample directories, and starts the training loop.
     """
-    train_dataloader, test_dataloader = get_mnist_data(opts)
+    
+    if opts.dataset == 'CelebA':
+        train_dataloader = get_celeba_loader(opts)
+    else: # Default is MNIST
+        train_dataloader, test_dataloader = get_mnist_data(opts)
     
     # Create checkpoint and sample directories
-    utils.create_dir(opts.checkpoint_dir)
-    utils.create_dir(opts.sample_dir)
+    utils.create_dir(opts.directory)
+    utils.create_dir(os.path.join(opts.directory, 'samples'))
+    utils.create_dir(os.path.join(opts.directory, 'model'))
 #
     startTime = time.time()
     training_loop(train_dataloader, opts)
@@ -367,30 +399,24 @@ def create_parser():
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--image_size', type=int, default=28, help='The side length N to convert images to NxN.')
-    parser.add_argument('--conv_dim', type=int, default=128)
-    parser.add_argument('--noise_size', type=int, default=74)
-    parser.add_argument('--cont_dim_size', type=int, default=4)
-    parser.add_argument('--cat_dim_size', type=int, default=10)
-
+    parser.add_argument('--dataset', type=str, default = 'MNIST', help='Select dataset, choose between MNIST or CelebA')
+    parser.add_argument('--directory', type=str, default='./test')
+    
     # Training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=5)
+    parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=64, help='The number of images in a batch.')
     parser.add_argument('--interp_size', type=int, default=10, help='The number of interpolation for continuous variables images displayed.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0003, help='The learning rate (default 0.0003)')
-    parser.add_argument('--beta1', type=float, default=0.5)
-    parser.add_argument('--beta2', type=float, default=0.99)
-
+    
     # Directories and checkpoint/sample iterations
     parser.add_argument('--display_debug', type=str, default=False)
-    parser.add_argument('--checkpoint_dir', type=str, default='./five_latent_variables')
-    parser.add_argument('--sample_dir', type=str, default='./five_latent_variables_sample')
     parser.add_argument('--log_step', type=int , default=10)
+    parser.add_argument('--sample_every', type=int , default=100)
+    parser.add_argument('--checkpoint_every', type=int , default=200)
+    
+    # Want to load a previously run model
     parser.add_argument('--load', type=str, default=None)
-    parser.add_argument('--sample_every', type=int , default=200)
-    parser.add_argument('--checkpoint_every', type=int , default=500)
-
+    
     return parser
 
 
@@ -400,6 +426,26 @@ if __name__ == '__main__':
     opts = parser.parse_args()
 
     batch_size = opts.batch_size
-
+    
+    # Set some default values based on the dataset
+    if opts.dataset == 'CelebA':
+        from models_celeba import Generator, Discriminator, Recognition, SharedPartDQ
+        opts.noise_size = 228
+        opts.cont_dims_count = 0
+        opts.cat_dim_size = 10
+        opts.cat_dims_count = 10        
+        opts.lr = 0.0003
+        opts.beta1 = 0.5
+        opts.beta2 = 0.99
+    else: # This is the MNIST dataset (default)
+        from models import Generator, Discriminator, Recognition, SharedPartDQ
+        opts.noise_size = 74
+        opts.cont_dims_count = 2
+        opts.cat_dim_size = 10     # Size of each categorical value
+        opts.cat_dims_count = 1   # Amount of categoricals
+        opts.lr = 0.0003
+        opts.beta1 = 0.5
+        opts.beta2 = 0.99
+    
     print(opts)
     main(opts)

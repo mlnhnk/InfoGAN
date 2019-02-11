@@ -59,7 +59,7 @@ def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_norm
 
 
 class Generator(nn.Module):
-    def __init__(self, noise_size, conv_dim):
+    def __init__(self, noise_size):
         super(Generator, self).__init__()
         
         self.fc1 = fullycon(noise_size, 1024, batch_norm=True)

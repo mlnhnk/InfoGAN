@@ -369,7 +369,7 @@ def create_parser():
     # Model hyper-parameters
     parser.add_argument('--image_size', type=int, default=32, help='The side length N to convert images to NxN.')
     parser.add_argument('--conv_dim', type=int, default=128)
-    parser.add_argument('--noise_size', type=int, default=142)
+    parser.add_argument('--noise_size', type=int, default=228)
     parser.add_argument('--cont_dim_size', type=int, default=4)
     parser.add_argument('--cat_dim_size', type=int, default=10)
 
