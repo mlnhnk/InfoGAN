@@ -44,7 +44,7 @@ def deconv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_no
     return nn.Sequential(*layers)
 
 
-def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_norm=True, init_zero_weights=True):
+def conv(in_channels, out_channels, kernel_size, stride=2, padding=1, batch_norm=True, init_zero_weights=False):
     """Creates a convolutional layer, with optional batch normalization.
     """
     layers = []
@@ -86,6 +86,9 @@ class Generator(nn.Module):
         out = F.relu(self.deconv2(out))
         out = F.relu(self.deconv3(out))
         out = F.relu(self.deconv4(out))
+#        print(out.size())
+#        print(F.tanh(out).size())
+#        print(out)
         return F.tanh(out)
 
 

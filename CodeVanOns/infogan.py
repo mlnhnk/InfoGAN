@@ -82,6 +82,13 @@ def print_models(DQ, D, Q, G):
 def create_model(opts):
     """Builds the generators and discriminators.
     """
+    
+    if opts.dataset == 'CelebA':
+        from models_celeba import Generator, Discriminator, Recognition, SharedPartDQ
+    else: # This is the MNIST dataset (default)
+        from models import Generator, Discriminator, Recognition, SharedPartDQ
+        
+        
     G = Generator(noise_size=opts.noise_size)
     D = Discriminator()
     
@@ -126,10 +133,10 @@ def load_checkpoint(opts):
     """
     if opts.load == None:
         print("None selected, thus we assume we load from checkpoint_dir.")
-        load_path = opts.checkpoint_dir
+        load_path = os.path.join(opts.directory, 'model')
     else:
         print("Use opts.load")
-        load_path = opts.load
+        load_path = os.path.join(opts.load, 'model')
     
     G_path = os.path.join(load_path, 'G.pkl')
     D_path = os.path.join(load_path, 'D.pkl')
@@ -176,7 +183,7 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
     generated_images = G(fixed_noise)
     generated_images = utils.to_data(generated_images)
     
-    grid = create_image_grid(generated_images, ncols=opts.interp_size)
+    grid = create_image_grid(generated_images, ncols=10)
 
     # merged = merge_images(X, fake_Y, opts)
     dir_path = os.path.join(opts.directory, 'samples')
@@ -235,23 +242,43 @@ def get_fixed_noise(opts, var=0):
     - A PyTorch Variable of shape (batch_size, dim, 1, 1) containing uniform
       random noise in the range (-1, 1).
     """
-    batch_noise = utils.to_var(torch.rand(10 * opts.interp_size, opts.noise_size) * 2 - 1)
-    
+    # Use this to covert value to one hot encoding
     onehot_categories = np.eye(10)
     
-    for ind in range(10):
-        batch_noise[ind*10:(ind+1)*10, :10] = torch.tensor(onehot_categories[ind])
+    # Plots are per row, 
+    # So first 10 entries are row 1
+    # Second 10 entries are row 2
+    
+    
+    if opts.dataset == 'CelebA':
+        batch_noise = utils.to_var(torch.rand(100, opts.noise_size) * 2 - 1)
         
-    continous_spectrum = torch.linspace(-2, 2, steps=opts.interp_size).repeat(10)
+        # Set the noise of the 9 entries following every 10th entry to be equal
+        for ind in range(10):
+            batch_noise[ind*10:(ind+1)*10,:] = batch_noise[ind*10,:]
+            
+        batch_noise[:, :opts.cat_dim_size * opts.cat_dims_count] = 0    
+        
+        #Set the var'th category to be changed per row
+        new_rows = torch.tensor(onehot_categories).repeat(10,1)
+        batch_noise[:, var * 10 : (var+1) * 10] = new_rows
+    else:
+        # Create one noise value
+        batch_noise = (torch.rand(1, opts.noise_size) * 2 - 1).repeat(100,1)
+        
+        # Set all values for the categorical to 0        
+        batch_noise[:, :opts.cat_dim_size * opts.cat_dims_count] = 0    
+           
+        # Set all categorical to each value 
+        for ind in range(10):
+            batch_noise[ind*10:(ind+1)*10, :10] = torch.tensor(onehot_categories[ind])
+            
+        # Set all latent continous variables to 0
+        batch_noise[:,10:10+opts.cont_dims_count] = 0
+        # Set var'th continous variable:
+        batch_noise[:,10+var] = torch.linspace(-2, 2, steps=10).repeat(10)
     
-    if var == 0:
-        batch_noise[:,10] = continous_spectrum
-        batch_noise[:,11] = 0
-    if var == 1:
-        batch_noise[:,10] = 0
-        batch_noise[:,11] = continous_spectrum
-    
-    return batch_noise.cuda()
+    return utils.to_var(batch_noise).cuda()
 
 def training_loop(train_dataloader, opts):
     """Runs the training loop.
@@ -259,19 +286,27 @@ def training_loop(train_dataloader, opts):
         * Saves generated samples every opts.sample_every iterations
     """
 
-    # Create generators and discriminators
-    G, D, Q, DQ = create_model(opts)
+    # Create new model, or load in a previous one
+    if opts.load == None:
+        # Create generators and discriminators
+        G, D, Q, DQ = create_model(opts)
+    else:
+        G, D, Q, DQ = load_checkpoint(opts)
 
     # Create optimizers for the generators and discriminators
-    d_optimizer = optim.Adam([{'params':DQ.parameters()}, {'params':D.parameters()}], 2e-4, [opts.beta1, opts.beta2])
-    g_optimizer = optim.Adam([{'params':G.parameters()}, {'params':Q.parameters()}], 1e-3, [opts.beta1, opts.beta2])
+    d_optimizer = optim.Adam([{'params':DQ.parameters()}, {'params':D.parameters()}], opts.lrD, [opts.beta1, opts.beta2])
+    g_optimizer = optim.Adam([{'params':G.parameters()}, {'params':Q.parameters()}], opts.lrG, [opts.beta1, opts.beta2])
 
     # Generate fixed noise for sampling from the generator
 #    fixed_noise, random_categories, cont_latent_variables = sample_noise(opts)
     
     fixed_noise = []
-    for i in range(opts.cont_dims_count):
-        fixed_noise.append(get_fixed_noise(opts, var=i))
+    if opts.dataset == 'CelebA':
+        for i in range(opts.cat_dims_count):
+            fixed_noise.append(get_fixed_noise(opts, var=i))
+    else: # Do MNIST (default):
+        for i in range(opts.cont_dims_count):
+            fixed_noise.append(get_fixed_noise(opts, var=i))
         
     iteration = 1
 
@@ -294,9 +329,9 @@ def training_loop(train_dataloader, opts):
     
     for epoch in range(opts.num_epochs):
 
-        for real_images, real_labels in train_dataloader:
-
-            real_images, labels = utils.to_var(real_images), utils.to_var(real_labels).long().squeeze()
+        for real_images, real_labels in train_dataloader:            
+            
+            real_images, _ = utils.to_var(real_images), utils.to_var(real_labels).long().squeeze()
             
 
             ################################################
@@ -355,16 +390,13 @@ def training_loop(train_dataloader, opts):
 
             # Print the log info
             if iteration % opts.log_step == 0:
-                print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss: {:6.4f}'.format(
-                       iteration, total_train_iters, D_real_loss.data[0], D_fake_loss.data[0], G_loss_total.data[0]))
+                print('Iteration [{:4d}/{:4d}] | D_real_loss: {:6.4f} | D_fake_loss: {:6.4f} | G_loss_fake: {:6.4f} | G_dis_loss: {:6.4f} | G_con_loss: {:6.4f}'.format(
+                       iteration, total_train_iters, D_real_loss.data[0], D_fake_loss.data[0], G_loss_fake.data[0], dis_loss, con_loss))
 
             # Save the generated samples
             if iteration % opts.sample_every == 0:
-                if opts.dataset == 'CelebA':
-                    print("Print celeba")
-                else: # Show MNIST (defailt)
-                    for i in range(opts.cont_dims_count):
-                        save_samples(G, fixed_noise[i], iteration, opts, i)
+                for i in range(len(fixed_noise)):
+                    save_samples(G, fixed_noise[i], iteration, opts, i)
 
             # Save the model parameters
             if iteration % opts.checkpoint_every == 0:
@@ -400,21 +432,21 @@ def create_parser():
 
     # Model hyper-parameters
     parser.add_argument('--dataset', type=str, default = 'MNIST', help='Select dataset, choose between MNIST or CelebA')
-    parser.add_argument('--directory', type=str, default='./test')
+    parser.add_argument('--directory', type=str, default='test')
     
     # Training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=64, help='The number of images in a batch.')
-    parser.add_argument('--interp_size', type=int, default=10, help='The number of interpolation for continuous variables images displayed.')
+    parser.add_argument('--num_epochs', type=int, default=900)
+    parser.add_argument('--batch_size', type=int, default=16, help='The number of images in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
     
     # Directories and checkpoint/sample iterations
     parser.add_argument('--display_debug', type=str, default=False)
     parser.add_argument('--log_step', type=int , default=10)
-    parser.add_argument('--sample_every', type=int , default=100)
-    parser.add_argument('--checkpoint_every', type=int , default=200)
+    parser.add_argument('--sample_every', type=int , default=500)
+    parser.add_argument('--checkpoint_every', type=int , default=500)
     
-    # Want to load a previously run model
+    # Want to load a previously run model? Give the parent directory
+    # Want to start over? Just set it as None
     parser.add_argument('--load', type=str, default=None)
     
     return parser
@@ -434,16 +466,21 @@ if __name__ == '__main__':
         opts.cont_dims_count = 0
         opts.cat_dim_size = 10
         opts.cat_dims_count = 10        
-        opts.lr = 0.0003
+        opts.lrD = 5e-5
+        opts.lrG = 3e-3
         opts.beta1 = 0.5
         opts.beta2 = 0.99
     else: # This is the MNIST dataset (default)
         from models import Generator, Discriminator, Recognition, SharedPartDQ
         opts.noise_size = 74
         opts.cont_dims_count = 2
+        
+        # DONT CHANGE THESE:
         opts.cat_dim_size = 10     # Size of each categorical value
         opts.cat_dims_count = 1   # Amount of categoricals
-        opts.lr = 0.0003
+        
+        opts.lrD = 2e-4
+        opts.lrG = 1e-3
         opts.beta1 = 0.5
         opts.beta2 = 0.99
     
