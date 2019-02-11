@@ -469,6 +469,7 @@ def create_parser():
     parser.add_argument('--load', type=str, default=None)
     
     # Save files to google drive?
+    # Set to True and follow the tooltips in the colab environment to save to drive!
     parser.add_argument('--colab', type=str, default=False)
     
     return parser
