@@ -198,7 +198,8 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
         
     path = os.path.join(dir_path, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
     scipy.misc.imsave(path, grid)
-    print('Saved {}'.format(path))
+    if not opts.display_debug:
+        print('Saved {}'.format(path))
 
 
 def sample_noise(opts):
@@ -259,7 +260,7 @@ def get_fixed_noise(opts, var=0):
     # Second 10 entries are row 2
     
     
-    if opts.dataset == 'CelebA':
+    if opts.dataset == 'CelebAa':
         if var == -1:
             batch_noise = utils.to_var(torch.rand(1, opts.noise_size) * 2 - 1).repeat(100,1)
         else:
@@ -472,7 +473,7 @@ def create_parser():
 
     # Model hyper-parameters
     parser.add_argument('--dataset', type=str, default = 'CelebA', help='Select dataset, choose between MNIST or CelebA')
-    parser.add_argument('--directory', type=str, default='test5')
+    parser.add_argument('--directory', type=str, default='test_celeb_cont')
     
     # Training hyper-parameters
     parser.add_argument('--num_epochs', type=int, default=20)
@@ -507,9 +508,9 @@ if __name__ == '__main__':
     if opts.dataset == 'CelebA':
         from models_celeba_b import Generator, Discriminator, Recognition, SharedPartDQ
         opts.noise_size = 228
-        opts.cont_dims_count = 0
+        opts.cont_dims_count = 2
         opts.cat_dim_size = 10
-        opts.cat_dims_count = 10        
+        opts.cat_dims_count = 1        
         opts.lrD = 2e-4
         opts.lrG = 1e-3
         opts.beta1 = 0.5
