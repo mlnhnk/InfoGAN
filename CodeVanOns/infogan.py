@@ -334,7 +334,8 @@ def training_loop(train_dataloader, opts):
     fixed_noise = []
     if opts.dataset == 'CelebA':
         # All 10 categorical values
-        for i in range(opts.cat_dims_count):
+#        for i in range(opts.cat_dims_count):
+        for i in range(opts.cont_dims_count):
             fixed_noise.append(get_fixed_noise(opts, var=i))
         # Add an overview:
         fixed_noise.append(get_fixed_noise(opts, var=-1))
@@ -516,7 +517,7 @@ if __name__ == '__main__':
         opts.noise_size = 228
         opts.cont_dims_count = opts.cont_dims_count
         opts.cat_dim_size = 10
-        opts.cat_dims_count = 1 
+        opts.cat_dims_count = 1
         opts.lrD = 2e-4
         opts.lrG = 1e-3
         opts.beta1 = 0.5
