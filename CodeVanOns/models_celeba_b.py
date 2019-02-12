@@ -145,7 +145,7 @@ class Recognition(nn.Module):
         out = F.leaky_relu(self.recog_fc2(x), negative_slope=0.1)
         
         #TODO MISSCHEIN SOFTMAX TEOVOEGEN?
-        cat_out = self.cat_fc(out)
+        cat_out = F.softmax(self.cat_fc(out))
         
         if self.cont_dims > 0:
             cont_mu_out = self.cont_mu_fc(out)

@@ -50,9 +50,12 @@ from data_loader import get_mnist_data, get_celeba_loader
 class log_gaussian:
 
   def __call__(self, x, mu, var):
+      # mu = mean
+      # var = exponential standard deviation
+      var = var.pow(2)
       logli = -0.5*(var.mul(2*np.pi)+1e-6).log() - \
       (x-mu).pow(2).div(var.mul(2.0)+1e-6)
-                
+      
       return logli.sum(1).mean().mul(-1)
 
 def print_models(DQ, D, Q, G):
@@ -331,7 +334,7 @@ def training_loop(train_dataloader, opts):
     fixed_noise = []
     if opts.dataset == 'CelebA':
         # All 10 categorical values
-        for i in range(opts.cont_dims_count):
+        for i in range(opts.cat_dims_count):
             fixed_noise.append(get_fixed_noise(opts, var=i))
         # Add an overview:
         fixed_noise.append(get_fixed_noise(opts, var=-1))
@@ -477,17 +480,17 @@ def create_parser():
     
     # Training hyper-parameters
     parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=16, help='The number of images in a batch.')
+    parser.add_argument('--batch_size', type=int, default=64, help='The number of images in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='The number of threads to use for the DataLoader.')
     
     # Directories and checkpoint/sample iterations
     parser.add_argument('--display_debug', type=str, default=False)
-    parser.add_argument('--log_step', type=int , default=10)
-    parser.add_argument('--sample_every', type=int , default=100)
-    parser.add_argument('--checkpoint_every', type=int , default=100)
+    parser.add_argument('--log_step', type=int , default=100)
+    parser.add_argument('--sample_every', type=int , default=1000)
+    parser.add_argument('--checkpoint_every', type=int , default=1000)
     
     parser.add_argument('--cont_dims_count', type=int , default=2)
-    parser.add_argument('--lambda_value', type=int , default=0.1)
+    parser.add_argument('--lambda_value', type=int , default=1)
     
     # Want to load a previously run model? Give the parent directory
     # Want to start over? Just set it as None
@@ -513,7 +516,7 @@ if __name__ == '__main__':
         opts.noise_size = 228
         opts.cont_dims_count = opts.cont_dims_count
         opts.cat_dim_size = 10
-        opts.cat_dims_count = 1        
+        opts.cat_dims_count = 1 
         opts.lrD = 2e-4
         opts.lrG = 1e-3
         opts.beta1 = 0.5
