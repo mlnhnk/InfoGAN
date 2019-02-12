@@ -331,7 +331,7 @@ def training_loop(train_dataloader, opts):
     fixed_noise = []
     if opts.dataset == 'CelebA':
         # All 10 categorical values
-        for i in range(opts.cont_dims_cont):
+        for i in range(opts.cont_dims_count):
             fixed_noise.append(get_fixed_noise(opts, var=i))
         # Add an overview:
         fixed_noise.append(get_fixed_noise(opts, var=-1))
