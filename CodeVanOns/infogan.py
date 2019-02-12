@@ -510,7 +510,7 @@ if __name__ == '__main__':
     if opts.dataset == 'CelebA':
         from models_celeba_b import Generator, Discriminator, Recognition, SharedPartDQ
         opts.noise_size = 228
-        opts.cont_dims_count = 2
+        opts.cont_dims_count = opts.cont_dims_count
         opts.cat_dim_size = 10
         opts.cat_dims_count = 1        
         opts.lrD = 2e-4
