@@ -260,17 +260,35 @@ def get_fixed_noise(opts, var=0):
     
     
     if opts.dataset == 'CelebA':
-        batch_noise = utils.to_var(torch.rand(100, opts.noise_size) * 2 - 1)
+        if var == -1:
+            batch_noise = utils.to_var(torch.rand(1, opts.noise_size) * 2 - 1).repeat(100,1)
+        else:
+            batch_noise = utils.to_var(torch.rand(100, opts.noise_size) * 2 - 1)
         
-        # Set the noise of the 9 entries following every 10th entry to be equal
-        for ind in range(10):
-            batch_noise[ind*10:(ind+1)*10,:] = batch_noise[ind*10,:]
+            # Set the noise of the 9 entries following every 10th entry to be equal
+            for ind in range(10):
+                batch_noise[ind*10:(ind+1)*10,:] = batch_noise[ind*10,:]
             
-        batch_noise[:, :opts.cat_dim_size * opts.cat_dims_count] = 0    
+        # Set all categorical values to their middles (6th) value
+        new_rows = torch.tensor(onehot_categories[5]).repeat(100, opts.cat_dims_count)
+        batch_noise[:, :opts.cat_dim_size * opts.cat_dims_count] = new_rows
+#        batch_noise[:, :opts.cat_dim_size * opts.cat_dims_count] = 0
         
-        #Set the var'th category to be changed per row
-        new_rows = torch.tensor(onehot_categories).repeat(10,1)
-        batch_noise[:, var * 10 : (var+1) * 10] = new_rows
+        
+        # Create new rows for one categorical
+        # That is 10 rows with incrementing categorical value
+        new_rows = torch.tensor(onehot_categories)
+        if var == -1:
+            for i in range(10):
+                ind_from = i*10
+                ind_to = (i+1)*10                  
+                batch_noise[ind_from:ind_to, ind_from:ind_to] = new_rows
+        else:
+            #Set the var'th category to be changed per row
+            ind_from = var*10
+            ind_to = (var+1)*10  
+            batch_noise[:, ind_from:ind_to] = new_rows.repeat(10,1)
+        
     else:
         # Create one noise value
         batch_noise = (torch.rand(1, opts.noise_size) * 2 - 1).repeat(100,1)
@@ -311,8 +329,11 @@ def training_loop(train_dataloader, opts):
     
     fixed_noise = []
     if opts.dataset == 'CelebA':
+        # All 10 categorical values
         for i in range(opts.cat_dims_count):
             fixed_noise.append(get_fixed_noise(opts, var=i))
+        # Add an overview:
+        fixed_noise.append(get_fixed_noise(opts, var=-1))
     else: # Do MNIST (default):
         for i in range(opts.cont_dims_count):
             fixed_noise.append(get_fixed_noise(opts, var=i))
@@ -451,7 +472,7 @@ def create_parser():
 
     # Model hyper-parameters
     parser.add_argument('--dataset', type=str, default = 'CelebA', help='Select dataset, choose between MNIST or CelebA')
-    parser.add_argument('--directory', type=str, default='test4')
+    parser.add_argument('--directory', type=str, default='test5')
     
     # Training hyper-parameters
     parser.add_argument('--num_epochs', type=int, default=20)
