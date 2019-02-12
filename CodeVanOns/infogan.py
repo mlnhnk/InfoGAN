@@ -307,7 +307,7 @@ def get_fixed_noise(opts, var=0):
         # Set all latent continous variables to 0
         batch_noise[:,10:10+opts.cont_dims_count] = 0
         # Set var'th continous variable:
-        batch_noise[:,10+var] = torch.linspace(-2, 2, steps=10).repeat(10)
+        batch_noise[:,10+var] = torch.linspace(-1, 1, steps=10).repeat(10)
     
     return utils.to_var(batch_noise).cuda()
 
