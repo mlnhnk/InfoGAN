@@ -486,6 +486,8 @@ def create_parser():
     parser.add_argument('--sample_every', type=int , default=100)
     parser.add_argument('--checkpoint_every', type=int , default=100)
     
+    parser.add_argument('--cont_dims_count', type=int , default=2)
+    
     # Want to load a previously run model? Give the parent directory
     # Want to start over? Just set it as None
     parser.add_argument('--load', type=str, default=None)
