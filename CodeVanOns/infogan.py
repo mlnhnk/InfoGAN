@@ -409,7 +409,7 @@ def training_loop(train_dataloader, opts):
             dis_loss = criterion_Q_dis(cat, category_target)
             
             if opts.cont_dims_count > 0:
-                con_loss = criterion_Q_con(continous_target, cont_mu, cont_sigma)*0.1
+                con_loss = criterion_Q_con(continous_target, cont_mu, cont_sigma)*opts.lambda_value
             else:
                 con_loss = 0
  
@@ -487,6 +487,7 @@ def create_parser():
     parser.add_argument('--checkpoint_every', type=int , default=100)
     
     parser.add_argument('--cont_dims_count', type=int , default=2)
+    parser.add_argument('--lambda_value', type=int , default=0.1)
     
     # Want to load a previously run model? Give the parent directory
     # Want to start over? Just set it as None
