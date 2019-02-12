@@ -198,7 +198,7 @@ def save_samples(G, fixed_noise, iteration, opts, extra_name):
         
     path = os.path.join(dir_path, 'c{}_sample-{:06d}.png'.format(extra_name, iteration))
     scipy.misc.imsave(path, grid)
-    if not opts.display_debug:
+    if opts.display_debug:
         print('Saved {}'.format(path))
 
 
@@ -331,7 +331,7 @@ def training_loop(train_dataloader, opts):
     fixed_noise = []
     if opts.dataset == 'CelebA':
         # All 10 categorical values
-        for i in range(opts.cat_dims_count):
+        for i in range(opts.cont_dims_cont):
             fixed_noise.append(get_fixed_noise(opts, var=i))
         # Add an overview:
         fixed_noise.append(get_fixed_noise(opts, var=-1))
